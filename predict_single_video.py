@@ -8,7 +8,7 @@ from feature_extractor import extract_features
 with open("knn_model.pkl", "rb") as f:
     knn = pickle.load(f)
 
-video_path = "../Dataset/test1.mp4"
+video_path = "Dataset/test1.mp4"
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(static_image_mode=True, min_detection_confidence=0.5)
 

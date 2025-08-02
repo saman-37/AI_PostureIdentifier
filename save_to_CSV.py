@@ -4,7 +4,7 @@ import mediapipe as mp
 import pandas as pd
 from feature_extractor import extract_features
 
-video_folder = "../Dataset"
+video_folder = "Dataset"
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(static_image_mode=True, min_detection_confidence=0.5)
 
