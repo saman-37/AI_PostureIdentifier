@@ -2,76 +2,52 @@ import os
 import cv2
 import mediapipe as mp
 import pandas as pd
+import numpy as np
 from feature_extractor import extract_features
 
-video_folder = "Dataset"
+# Initialize MediaPipe
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(static_image_mode=True, min_detection_confidence=0.5)
 
+# List to store the data
 data = []
 
-for filename in os.listdir(video_folder):
-    if filename.endswith(".mp4"):
-        filepath = os.path.join(video_folder, filename)
+video_folder = "Dataset"  # Relative path → refers to 'Dataset' folder in current directory
 
-        if filename.startswith("C"):
-            label = 1
-        elif filename.startswith("W"):
-            label = 0
-        else:
-            continue
+for filename in sorted(os.listdir(video_folder)):  # Process files in alphabetical order
+    if not (filename.startswith("C") or filename.startswith("W")) or not filename.endswith(".mp4"):
+        continue  # Only process MP4 files starting with C or W
 
-        cap = cv2.VideoCapture(filepath)
-        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    label = 1 if filename.startswith("C") else 0
+    cap = cv2.VideoCapture(os.path.join(video_folder, filename))
 
-        top_frame_idx = None
-        bottom_frame_idx = None
-        highest_hip_y = 1.0
-        lowest_hip_y = 0.0
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
 
-        for i in range(0, frame_count, 5):
-            cap.set(cv2.CAP_PROP_POS_FRAMES, i)
-            ret, frame = cap.read()
-            if not ret:
-                continue
-            image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = pose.process(image)
+        # Process every 5th frame (100% → 20% sampling)
+        if int(cap.get(cv2.CAP_PROP_POS_FRAMES)) % 5 == 0:
+            results = pose.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             if results.pose_landmarks:
-                landmarks = results.pose_landmarks.landmark
-                hip_y = landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y
+                try:
+                    features = extract_features(results.pose_landmarks.landmark)
+                    data.append(features + [label])
+                except:
+                    continue
 
-                if hip_y < highest_hip_y:
-                    highest_hip_y = hip_y
-                    top_frame_idx = i
+    cap.release()
 
-                if hip_y > lowest_hip_y:
-                    lowest_hip_y = hip_y
-                    bottom_frame_idx = i
-
-        features = []
-        for idx in [top_frame_idx, bottom_frame_idx]:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
-            ret, frame = cap.read()
-            if not ret:
-                continue
-            image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = pose.process(image)
-            if results.pose_landmarks:
-                landmarks = results.pose_landmarks.landmark
-                feats = extract_features(landmarks)
-                features.extend(feats)
-        cap.release()
-
-        if len(features) == 10:
-            features.append(label)
-            data.append(features)
-
-columns = [
-    'shoulder_slope_start', 'knee_dist_start', 'knee_align_L_start', 'knee_align_R_start', 'shoulder_hip_angle_start',
-    'shoulder_slope_bottom', 'knee_dist_bottom', 'knee_align_L_bottom', 'knee_align_R_bottom', 'shoulder_hip_angle_bottom',
-    'label'
-]
-
-df = pd.DataFrame(data, columns=columns)
-df.to_csv("squat_features.csv", index=False)
-print("✅ Features saved to 'squat_features.csv'")
+# Save to CSV
+if data:
+    columns = [
+        'shoulder_slope', 'knee_distance', 'knee_align_L', 'knee_align_R', 'shoulder_hip_angle',
+        # ... (Add all other feature names returned by feature_extractor.py here)
+        'label'
+    ]
+    df = pd.DataFrame(data, columns=columns)
+    df.to_csv("squat_features.csv", index=False)
+    print(f"\nFinal number of saved samples: {len(df)}")
+    print("Class distribution:\n", df['label'].value_counts())
+else:
+    print("❌ No data extracted. Please check the videos or pose detection.")
