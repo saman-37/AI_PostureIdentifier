@@ -47,3 +47,20 @@ with open("knn_model.pkl", "wb") as f:
 # 7. Evaluate model performance
 y_pred = best_model.predict(X_test)
 print("✅ Test Accuracy:", accuracy_score(y_test, y_pred))
+
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+import matplotlib.pyplot as plt
+
+# --- After you have your best KNN model (e.g., `best_knn`) and your scaled test data ---
+y_pred = best_model.predict(X_test)
+
+# Build confusion matrix
+labels = sorted(set(y_test) | set(y_pred))
+cm = confusion_matrix(y_test, y_pred, labels=labels)
+
+fig, ax = plt.subplots(figsize=(4,4), dpi=300)
+ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels).plot(ax=ax, values_format="d")
+plt.title("Confusion Matrix — Test Set")
+plt.tight_layout()
+plt.savefig("confusion_matrix_test.png")  # Saves for your poster
+plt.show()
